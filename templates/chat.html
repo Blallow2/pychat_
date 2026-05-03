@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="https://cdn.socket.io/4.0.0/socket.io.min.js"></script>
+
+<style>
+body{
+    margin:0;
+    font-family:'Segoe UI',sans-serif;
+    height:100vh;
+    display:flex;
+}
+
+/* SIDEBAR */
+.sidebar{
+    width:280px;
+    background:#1e1f22;
+    color:white;
+    display:flex;
+    flex-direction:column;
+}
+
+.top{
+    padding:15px;
+    font-weight:bold;
+    border-bottom:1px solid #333;
+}
+
+.friend{
+    padding:12px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+}
+
+.friend:hover{
+    background:#2b2d31;
+}
+
+.avatar{
+    width:35px;
+    height:35px;
+    border-radius:50%;
+    background:#5865f2;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    margin-right:10px;
+    font-weight:bold;
+}
+
+/* MAIN */
+.main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    background:#f0f2f5;
+}
+
+/* HEADER */
+.header{
+    padding:12px;
+    background:white;
+    border-bottom:1px solid #ddd;
+    font-weight:bold;
+}
+
+/* CHAT */
+.messages{
+    flex:1;
+    padding:15px;
+    overflow:auto;
+}
+
+/* BUBBLE */
+.msg{
+    display:flex;
+    margin:8px 0;
+}
+
+.msg.me{
+    justify-content:flex-end;
+}
+
+.bubble{
+    max-width:60%;
+    padding:10px 14px;
+    border-radius:18px;
+    font-size:14px;
+}
+
+.me .bubble{
+    background:#5865f2;
+    color:white;
+    border-bottom-right-radius:5px;
+}
+
+.other .bubble{
+    background:white;
+    border-bottom-left-radius:5px;
+}
+
+/* INPUT */
+.input{
+    display:flex;
+    padding:10px;
+    background:white;
+    border-top:1px solid #ddd;
+}
+
+.input input{
+    flex:1;
+    padding:10px;
+    border:none;
+    background:#eee;
+    border-radius:20px;
+}
+
+.input button{
+    margin-left:5px;
+    padding:10px 15px;
+    border:none;
+    background:#5865f2;
+    color:white;
+    border-radius:20px;
+    cursor:pointer;
+}
+
+/* REQUEST */
+.req{
+    padding:10px;
+    border-top:1px solid #333;
+}
+</style>
+</head>
+
+<body>
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+
+<div class="top">👤 {{user}}</div>
+
+<div class="req">
+<input id="addUser" placeholder="Thêm bạn">
+<button onclick="addFriend()">+</button>
+</div>
+
+<div class="req">
+<div id="requests"></div>
+</div>
+
+<div id="friends"></div>
+
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+<div class="header" id="chatTitle">Chọn người để chat</div>
+
+<div class="messages" id="chat"></div>
+
+<div class="input">
+<input id="msg" placeholder="Nhập tin nhắn...">
+<input type="file" id="img">
+<button onclick="send()">➤</button>
+</div>
+
+</div>
+
+<script>
+let socket = io();
+let me = "{{user}}";
+let current = "";
+
+// ===== LOAD FRIEND =====
+function loadFriends(){
+fetch('/friends')
+.then(r=>r.json())
+.then(data=>{
+friends.innerHTML=data.map(f=>`
+<div class="friend" onclick="openChat('${f}')">
+<div class="avatar">${f[0].toUpperCase()}</div>
+${f}
+</div>
+`).join('');
+});
+}
+
+// ===== REQUEST =====
+function loadRequests(){
+fetch('/requests')
+.then(r=>r.json())
+.then(data=>{
+requests.innerHTML=data.map(u=>`
+<div>
+${u}
+<button onclick="acceptReq('${u}')">✔</button>
+<button onclick="declineReq('${u}')">✖</button>
+</div>`).join('');
+});
+}
+
+function addFriend(){
+fetch('/send_request',{
+method:'POST',
+headers:{'Content-Type':'application/x-www-form-urlencoded'},
+body:`to=${addUser.value}`
+}).then(r=>r.text()).then(alert);
+}
+
+function acceptReq(u){
+fetch('/accept',{
+method:'POST',
+headers:{'Content-Type':'application/x-www-form-urlencoded'},
+body:`user=${u}`
+}).then(()=>{
+loadFriends();
+loadRequests();
+});
+}
+
+function declineReq(u){
+fetch('/decline',{
+method:'POST',
+headers:{'Content-Type':'application/x-www-form-urlencoded'},
+body:`user=${u}`
+}).then(loadRequests);
+}
+
+// ===== CHAT =====
+function openChat(u){
+current=u;
+chatTitle.innerText="💬 " + u;
+
+socket.emit("join",{u1:me,u2:u});
+
+fetch('/messages/'+u)
+.then(r=>r.json())
+.then(data=>{
+chat.innerHTML="";
+data.forEach(addMsg);
+});
+}
+
+socket.on("msg", addMsg);
+
+function addMsg(d){
+let div=document.createElement("div");
+div.className="msg " + (d.user==me?"me":"other");
+
+div.innerHTML = `
+<div class="bubble">
+${d.text || ""}
+${d.image ? `<br><img src="${d.image}" width="120">` : ""}
+</div>
+`;
+
+chat.appendChild(div);
+chat.scrollTop=chat.scrollHeight;
+}
+
+// ===== SEND =====
+function send(){
+if(!current){
+alert("Chọn người trước!");
+return;
+}
+
+let file = img.files[0];
+
+if(file){
+let form=new FormData();
+form.append("file",file);
+
+fetch('/upload',{method:'POST',body:form})
+.then(r=>r.text())
+.then(url=>{
+socket.emit("send",{to:current,text:msg.value,image:url});
+});
+}else{
+socket.emit("send",{to:current,text:msg.value});
+}
+
+msg.value="";
+}
+
+// ===== INIT =====
+loadFriends();
+loadRequests();
+</script>
+
+</body>
+</html>

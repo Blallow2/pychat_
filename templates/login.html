@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+body{
+margin:0;
+font-family:Arial;
+height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+background:#2b2d31;
+}
+
+.box{
+width:90%;
+max-width:340px;
+background:#1e1f22;
+padding:25px;
+border-radius:12px;
+color:white;
+}
+
+input{
+width:100%;
+padding:12px;
+margin:8px 0;
+border:none;
+border-radius:8px;
+background:#2f3136;
+color:white;
+}
+
+button{
+width:100%;
+padding:12px;
+margin-top:10px;
+border:none;
+border-radius:8px;
+background:#5865f2;
+color:white;
+cursor:pointer;
+}
+
+.error{
+color:#ff6b6b;
+font-size:13px;
+text-align:center;
+}
+</style>
+</head>
+
+<body>
+
+<div class="box">
+
+<h2>PyChat</h2>
+
+<div id="error" class="error"></div>
+
+<input id="u" placeholder="Username">
+<input id="p" type="password" placeholder="Password">
+
+<button onclick="login()">Login</button>
+<button onclick="register()">Register</button>
+
+</div>
+
+<script>
+const u = document.getElementById("u");
+const p = document.getElementById("p");
+const error = document.getElementById("error");
+
+// LOGIN
+function login(){
+fetch('/login',{
+method:'POST',
+headers:{'Content-Type':'application/x-www-form-urlencoded'},
+body:`username=${u.value}&password=${p.value}`
+})
+.then(r=>r.text())
+.then(t=>{
+if(t==="OK"){
+location='/chat';
+}else{
+error.innerText=t;
+}
+})
+.catch(()=>error.innerText="Server lỗi");
+}
+
+// REGISTER
+function register(){
+if(p.value.length<6){
+error.innerText="Mật khẩu ≥ 6 ký tự";
+return;
+}
+
+fetch('/register',{
+method:'POST',
+headers:{'Content-Type':'application/x-www-form-urlencoded'},
+body:`username=${u.value}&password=${p.value}`
+})
+.then(r=>r.text())
+.then(t=>{
+error.innerText=t;
+});
+}
+</script>
+
+</body>
+</html>
