@@ -2,3 +2,5 @@ flask
 flask-socketio
 gunicorn
 bcrypt
+gevent
+gevent-websocket
