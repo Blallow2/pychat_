@@ -4,7 +4,7 @@ import sqlite3, bcrypt, uuid
 
 app = Flask(__name__)
 app.secret_key = "secret"
-socketio = SocketIO(app, async_mode="threading")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 
 # ===== DATABASE =====
 def db():
